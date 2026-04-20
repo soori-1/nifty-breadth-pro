@@ -5,7 +5,6 @@ from datetime import datetime
 
 # Configuration
 FILE_NAME = "Nifty500_Master_Data.csv"
-INDEX_TICKER = "^CNX500" 
 URL = "https://archives.nseindia.com/content/indices/ind_nifty500list.csv"
 
 def run_update():
@@ -17,9 +16,16 @@ def run_update():
     end_date = datetime.now().strftime('%Y-%m-%d')
     print(f"Targeting: {start_date} to {end_date}")
 
-    # B. Get the Index Price (This defines our DATE column)
-    idx_raw = yf.download(INDEX_TICKER, start=start_date, end=end_date, progress=False)
+    # B. Get the Index Price
+    print("Downloading Index Price...")
+    # Yahoo Finance deleted ^CNX500. We use ^CRSLDX (the new Nifty 500 symbol) 
+    # and fallback to ^NSEI (Nifty 50) just in case.
+    idx_raw = yf.download("^CRSLDX", start=start_date, end=end_date, progress=False)
     
+    if len(idx_raw) == 0:
+        print("Nifty 500 ticker failed. Falling back to Nifty 50 (^NSEI)...")
+        idx_raw = yf.download("^NSEI", start=start_date, end=end_date, progress=False)
+
     # Flatten Nifty Index to 1D Series
     if isinstance(idx_raw.columns, pd.MultiIndex):
         nifty_series = idx_raw['Adj Close'].iloc[:, 0]
@@ -29,6 +35,10 @@ def run_update():
     nifty_series = nifty_series.dropna()
     master_index = nifty_series.index
     print(f"Master Timeline Established: {len(master_index)} trading days.")
+
+    if len(master_index) == 0:
+        print("CRITICAL: Both Index tickers failed. Exiting.")
+        return
 
     # C. Download stocks and join them to the Master Timeline
     all_highs = pd.DataFrame(index=master_index)
@@ -51,7 +61,6 @@ def run_update():
 
     # D. Breadth Math
     print("Calculating 52-Week Highs/Lows...")
-    # Shift(1) to avoid looking at today's price when calculating the yearly high
     prev_52w_highs = all_highs.shift(1).rolling(window=252).max()
     prev_52w_lows = all_lows.shift(1).rolling(window=252).min()
     
@@ -74,7 +83,7 @@ def run_update():
     
     # Final Check
     if final_df.empty:
-        print("CRITICAL ERROR: Final table is empty! Check yfinance download.")
+        print("CRITICAL ERROR: Final table is empty!")
     else:
         final_df.to_csv(FILE_NAME, index=False)
         print(f"SUCCESS: {FILE_NAME} saved with {len(final_df)} rows.")
