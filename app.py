@@ -68,17 +68,16 @@ else:
     fig.update_layout(height=1000, template="plotly_dark", hovermode="x unified", showlegend=False)
     st.plotly_chart(fig, use_container_width=True)
 
-    # --- STYLED DATA TABLE ---
+   # --- STYLED DATA TABLE ---
+  # --- STYLED DATA TABLE ---
     st.subheader("Latest Market Data (Color-Coded)")
     
     # 1. Format the data for the table
     display_df = df.sort_values(by='DATE', ascending=False).head(20).copy()
-    display_df['DATE'] = display_df['DATE'].dt.strftime('%d %b %Y') # Make dates cleaner (e.g., 20 Apr 2026)
+    display_df['DATE'] = display_df['DATE'].dt.strftime('%d %b %Y') 
     
-    # Select only the columns we want to show
     display_df = display_df[['DATE', 'NIFTY_500_CLOSE', '52W_HIGH', '52W_LOW', 'Net_Highs', 'PCT_HIGH']]
     
-    # Rename columns for better readability
     display_df.rename(columns={
         'NIFTY_500_CLOSE': 'Index Close',
         '52W_HIGH': 'New Highs',
@@ -87,15 +86,17 @@ else:
         'PCT_HIGH': '% Stocks at High'
     }, inplace=True)
 
-    # 2. Define the styling function
+    # 2. Foolproof styling functions
     def color_net_highs(val):
-        if type(val) == str:
+        try:
+            val = float(val)
+            if val > 0:
+                return 'color: #00FF00; font-weight: bold;' # Bright Green
+            elif val < 0:
+                return 'color: #FF4136; font-weight: bold;' # Bright Red
+            return 'color: white;'
+        except:
             return ''
-        if val > 0:
-            return 'color: #00FF00; font-weight: bold' # Bright Green
-        elif val < 0:
-            return 'color: #FF4136; font-weight: bold' # Bright Red
-        return 'color: white'
 
     def highlight_highs(val):
          return 'color: #00FF00;'
@@ -103,12 +104,12 @@ else:
     def highlight_lows(val):
          return 'color: #FF4136;'
 
-    # 3. Apply the styles
-    styled_df = display_df.style.map(color_net_highs, subset=['Net Highs (H-L)']) \
-                                .map(highlight_highs, subset=['New Highs']) \
-                                .map(highlight_lows, subset=['New Lows']) \
+    # 3. Apply the styles (using applymap for broader compatibility)
+    styled_df = display_df.style.applymap(color_net_highs, subset=['Net Highs (H-L)']) \
+                                .applymap(highlight_highs, subset=['New Highs']) \
+                                .applymap(highlight_lows, subset=['New Lows']) \
                                 .format({
-                                    'Index Close': '{:,.2f}', # Add commas to the price
+                                    'Index Close': '{:,.2f}', 
                                     '% Stocks at High': '{:.1f}%'
                                 })
     
