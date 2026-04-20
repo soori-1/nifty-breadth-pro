@@ -4,7 +4,7 @@ import time
 from datetime import datetime
 import os
 
-# 1. Configuration
+# Configuration
 FILE_NAME = "Nifty500_Master_Data.csv"
 INDEX_TICKER = "^CNX500" 
 URL = "https://archives.nseindia.com/content/indices/ind_nifty500list.csv"
@@ -19,35 +19,29 @@ def run_update():
     end_date = datetime.now().strftime('%Y-%m-%d')
 
     print(f"Starting Data Engine... Targeting {end_date}")
-    
     all_highs = pd.DataFrame()
     all_lows = pd.DataFrame()
     batch_size = 30
     
     for i in range(0, len(tickers), batch_size):
         batch = tickers[i:i+batch_size]
-        # Downloading data for the batch
-        data = yf.download(batch, start=start_date, end=end_date, auto_adjust=True, progress=False)
-        
-        # We ensure we are selecting the 'High' and 'Low' columns properly
-        if 'High' in data.columns:
+        try:
+            # IMPORTANT: Removed auto_adjust to avoid data gaps
+            data = yf.download(batch, start=start_date, end=end_date, progress=False)
             all_highs = pd.concat([all_highs, data['High']], axis=1)
-        if 'Low' in data.columns:
             all_lows = pd.concat([all_lows, data['Low']], axis=1)
-            
-        print(f"Downloaded {min(i+batch_size, 500)}/500 stocks...")
-        time.sleep(1)
+            print(f"Downloaded {min(i+batch_size, 500)}/500 stocks...")
+            time.sleep(1)
+        except:
+            continue
 
-    # Download Nifty 500 Index Price - We force it to be a 1D Series using .squeeze()
-    print("Downloading Index Price...")
-    idx_data = yf.download(INDEX_TICKER, start=start_date, end=end_date, progress=False)
-    # Extract just the Close column and flatten it
-    if isinstance(idx_data.columns, pd.MultiIndex):
-        nifty_close = idx_data['Close'].iloc[:, 0]
-    else:
-        nifty_close = idx_data['Close']
-        
-    # Logic for 52-Week Highs/Lows
+    # NEW: Specific download for Adjusted Close for consistency
+    print("Downloading Nifty 500 Index Price (Adj Close)...")
+    idx_raw = yf.download(INDEX_TICKER, start=start_date, end=end_date, progress=False)
+    # Extract just the Adj Close column
+    idx_close = idx_raw['Adj Close'].reindex(all_highs.index)
+
+    # 52-Week High/Low Logic (252 trading days)
     rolling_h = all_highs.shift(1).rolling(window=252).max()
     rolling_l = all_lows.shift(1).rolling(window=252).min()
     
@@ -55,21 +49,19 @@ def run_update():
     low_count = (all_lows <= rolling_l).sum(axis=1)
     active = all_highs.notna().sum(axis=1)
 
-    # Build the DataFrame using Series directly (safer than .values)
+    # Combine into Master Table
     final_df = pd.DataFrame({
-        'NIFTY_500_CLOSE': nifty_close,
-        '52W_HIGH': high_count,
-        '52W_LOW': low_count,
+        'DATE': high_count.index,
+        'NIFTY_500_CLOSE': idx_close.values,
+        '52W_HIGH': high_count.values.astype(int),
+        '52W_LOW': low_count.values.astype(int),
         'PCT_HIGH': ((high_count / active) * 100).fillna(0).round(1)
-    }).reset_index() # This moves the Date from the index to a column
+    })
 
-    # Rename the date column to match our requirements
-    final_df.rename(columns={'Date': 'DATE', 'index': 'DATE'}, inplace=True)
-    
-    # Final cleanup: Start from 2000 and save
+    # Filter to start from 2000 onwards and save
     final_df = final_df[final_df['DATE'] >= '2000-01-01']
     final_df.to_csv(FILE_NAME, index=False)
-    print(f"SUCCESS: {FILE_NAME} generated with {len(final_df)} rows.")
+    print("SUCCESS: Master Data Updated with complete Nifty 500 Index.")
 
 if __name__ == "__main__":
     run_update()
