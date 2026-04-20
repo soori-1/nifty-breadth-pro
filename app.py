@@ -5,8 +5,16 @@ from plotly.subplots import make_subplots
 import os
 
 st.set_page_config(layout="wide", page_title="Nifty 500 Pro Dashboard")
-st.title("📊 Nifty 500 Market Breadth")
-
+st.title("📊 Right Horizons Nifty 500 Market Breadth")
+# --- HIDE STREAMLIT BRANDING ---
+hide_st_style = """
+            <style>
+            #MainMenu {visibility: hidden;}
+            footer {visibility: hidden;}
+            header {visibility: hidden;}
+            </style>
+            """
+st.markdown(hide_st_style, unsafe_allow_html=True)
 def load_data():
     if not os.path.exists("Nifty500_Master_Data.csv"):
         return pd.DataFrame()
@@ -68,7 +76,7 @@ else:
     fig.update_layout(height=1000, template="plotly_dark", hovermode="x unified", showlegend=False)
     st.plotly_chart(fig, use_container_width=True)
 
-   # --- STYLED DATA TABLE ---
+
  # --- STYLED DATA TABLE ---
     st.subheader("Latest Market Data (Color-Coded)")
     
