@@ -18,19 +18,20 @@ def run_update():
 
     # B. Get the Index Price
     print("Downloading Index Price...")
-    # Yahoo Finance deleted ^CNX500. We use ^CRSLDX (the new Nifty 500 symbol) 
-    # and fallback to ^NSEI (Nifty 50) just in case.
     idx_raw = yf.download("^CRSLDX", start=start_date, end=end_date, progress=False)
     
     if len(idx_raw) == 0:
         print("Nifty 500 ticker failed. Falling back to Nifty 50 (^NSEI)...")
         idx_raw = yf.download("^NSEI", start=start_date, end=end_date, progress=False)
 
-    # Flatten Nifty Index to 1D Series
+    # SAFELY EXTRACT 'Close' COLUMN (Fixes the KeyError)
     if isinstance(idx_raw.columns, pd.MultiIndex):
-        nifty_series = idx_raw['Adj Close'].iloc[:, 0]
+        if 'Close' in idx_raw.columns.get_level_values(0):
+            nifty_series = idx_raw['Close'].iloc[:, 0]
+        else:
+            nifty_series = idx_raw.iloc[:, 0] # Ultimate fallback
     else:
-        nifty_series = idx_raw['Adj Close'] if 'Adj Close' in idx_raw.columns else idx_raw['Close']
+        nifty_series = idx_raw['Close'] if 'Close' in idx_raw.columns else idx_raw.iloc[:, 0]
     
     nifty_series = nifty_series.dropna()
     master_index = nifty_series.index
@@ -68,7 +69,7 @@ def run_update():
     low_counts = (all_lows <= prev_52w_lows).sum(axis=1)
     active_count = all_highs.notna().sum(axis=1)
 
-    # E. Final Table Construction (Flattening everything to 1D)
+    # E. Final Table Construction 
     final_df = pd.DataFrame({
         'DATE': master_index,
         'NIFTY_500_CLOSE': nifty_series.values.flatten(),
