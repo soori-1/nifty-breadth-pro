@@ -2,59 +2,55 @@ import yfinance as yf
 import pandas as pd
 import time
 from datetime import datetime
-import os
 
 # 1. Configuration
 FILE_NAME = "Nifty500_Master_Data.csv"
 INDEX_TICKER = "^CNX500" 
 URL = "https://archives.nseindia.com/content/indices/ind_nifty500list.csv"
 
-def get_tickers():
-    df = pd.read_csv(URL)
-    return [s + ".NS" for s in df['Symbol'].tolist()]
-
 def run_update():
-    tickers = get_tickers()
+    # Load Tickers
+    df_tickers = pd.read_csv(URL)
+    tickers = [s + ".NS" for s in df_tickers['Symbol'].tolist()]
+    
     start_date = "1999-01-01" 
     end_date = datetime.now().strftime('%Y-%m-%d')
+    print(f"Fetching data from {start_date} to {end_date}...")
 
-    print(f"Starting Data Engine... Targeting {end_date}")
-    all_highs = pd.DataFrame()
-    all_lows = pd.DataFrame()
-    batch_size = 30
+    # Download Nifty 500 Index first to establish the master timeline
+    idx_raw = yf.download(INDEX_TICKER, start=start_date, end=end_date, progress=False)
+    
+    # Flatten MultiIndex if present
+    if isinstance(idx_raw.columns, pd.MultiIndex):
+        nifty_series = idx_raw['Adj Close'].iloc[:, 0]
+    else:
+        nifty_series = idx_raw['Adj Close'] if 'Adj Close' in idx_raw.columns else idx_raw['Close']
+    
+    nifty_series = nifty_series.squeeze() # Ensure 1D
+
+    # Download 500 stocks in batches
+    all_highs = pd.DataFrame(index=nifty_series.index)
+    all_lows = pd.DataFrame(index=nifty_series.index)
+    batch_size = 40
     
     for i in range(0, len(tickers), batch_size):
         batch = tickers[i:i+batch_size]
         data = yf.download(batch, start=start_date, end=end_date, progress=False)
         
-        # Pull Highs and Lows
-        if 'High' in data.columns:
-            all_highs = pd.concat([all_highs, data['High']], axis=1)
-        if 'Low' in data.columns:
-            all_lows = pd.concat([all_lows, data['Low']], axis=1)
-            
-        print(f"Downloaded {min(i+batch_size, 500)}/500 stocks...")
+        if not data.empty:
+            # Safely extract High/Low
+            if 'High' in data.columns:
+                h = data['High']
+                all_highs = all_highs.join(h, how='left', rsuffix='_high')
+            if 'Low' in data.columns:
+                l = data['Low']
+                all_lows = all_lows.join(l, how='left', rsuffix='_low')
+                
+        print(f"Progress: {min(i+batch_size, 500)}/500 stocks...")
         time.sleep(1)
 
-    # --- THE FIX FOR THE VALUEERROR ---
-    print("Downloading Index Price...")
-    idx_raw = yf.download(INDEX_TICKER, start=start_date, end=end_date, progress=False)
-    
-    # We force the Index data to be 1D by selecting just the 'Adj Close' 
-    # and using .iloc[:, 0] to grab the first available column
-    if 'Adj Close' in idx_raw.columns:
-        nifty_series = idx_raw['Adj Close']
-    else:
-        nifty_series = idx_raw['Close']
-    
-    # If it's still a DataFrame (MultiIndex), grab the first column only
-    if isinstance(nifty_series, pd.DataFrame):
-        nifty_series = nifty_series.iloc[:, 0]
-
-    # Align the index price with our breadth dates (important for holidays)
-    nifty_final = nifty_series.reindex(all_highs.index).ffill()
-    
-    # Breadth Logic
+    print("Calculating metrics...")
+    # 52-Week Logic
     rolling_h = all_highs.shift(1).rolling(window=252).max()
     rolling_l = all_lows.shift(1).rolling(window=252).min()
     
@@ -62,20 +58,19 @@ def run_update():
     low_count = (all_lows <= rolling_l).sum(axis=1)
     active = all_highs.notna().sum(axis=1)
 
-    # Constructing final DataFrame safely
+    # Build Final DataFrame
     final_df = pd.DataFrame({
-        'NIFTY_500_CLOSE': nifty_final,
-        '52W_HIGH': high_count,
-        '52W_LOW': low_count,
-        'PCT_HIGH': ((high_count / active) * 100).fillna(0).round(1)
-    }).reset_index()
+        'DATE': nifty_series.index,
+        'NIFTY_500_CLOSE': nifty_series.values,
+        '52W_HIGH': high_count.values,
+        '52W_LOW': low_count.values,
+        'PCT_HIGH': ((high_count / active) * 100).fillna(0).round(1).values
+    })
 
-    final_df.rename(columns={'Date': 'DATE', 'index': 'DATE'}, inplace=True)
-    
-    # Filter for year 2000 onwards
+    # Start from 2000 and save
     final_df = final_df[final_df['DATE'] >= '2000-01-01']
     final_df.to_csv(FILE_NAME, index=False)
-    print(f"SUCCESS: {FILE_NAME} generated.")
+    print(f"SUCCESS: {FILE_NAME} generated with {len(final_df)} rows.")
 
 if __name__ == "__main__":
     run_update()
