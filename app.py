@@ -69,16 +69,17 @@ else:
     st.plotly_chart(fig, use_container_width=True)
 
    # --- STYLED DATA TABLE ---
-  # --- STYLED DATA TABLE ---
+ # --- STYLED DATA TABLE ---
     st.subheader("Latest Market Data (Color-Coded)")
     
-    # 1. Format the data for the table
+    # 1. Format the data
     display_df = df.sort_values(by='DATE', ascending=False).head(20).copy()
     display_df['DATE'] = display_df['DATE'].dt.strftime('%d %b %Y') 
     
     display_df = display_df[['DATE', 'NIFTY_500_CLOSE', '52W_HIGH', '52W_LOW', 'Net_Highs', 'PCT_HIGH']]
     
     display_df.rename(columns={
+        'DATE': 'Date',
         'NIFTY_500_CLOSE': 'Index Close',
         '52W_HIGH': 'New Highs',
         '52W_LOW': 'New Lows',
@@ -86,32 +87,31 @@ else:
         'PCT_HIGH': '% Stocks at High'
     }, inplace=True)
 
-    # 2. Foolproof styling functions
-    def color_net_highs(val):
-        try:
-            val = float(val)
-            if val > 0:
-                return 'color: #00FF00; font-weight: bold;' # Bright Green
-            elif val < 0:
-                return 'color: #FF4136; font-weight: bold;' # Bright Red
-            return 'color: white;'
-        except:
-            return ''
-
-    def highlight_highs(val):
-         return 'color: #00FF00;'
-    
-    def highlight_lows(val):
-         return 'color: #FF4136;'
-
-    # 3. Apply the styles (using applymap for broader compatibility)
-    styled_df = display_df.style.applymap(color_net_highs, subset=['Net Highs (H-L)']) \
-                                .applymap(highlight_highs, subset=['New Highs']) \
-                                .applymap(highlight_lows, subset=['New Lows']) \
-                                .format({
-                                    'Index Close': '{:,.2f}', 
-                                    '% Stocks at High': '{:.1f}%'
-                                })
-    
-    # Render the styled dataframe
-    st.dataframe(styled_df, use_container_width=True, hide_index=True)
+    # 2. Use Streamlit's built-in column configuration for foolproof styling
+    st.dataframe(
+        display_df,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "Index Close": st.column_config.NumberColumn(
+                "Index Close",
+                format="%.2f"
+            ),
+            "New Highs": st.column_config.NumberColumn(
+                "New Highs",
+                help="Number of stocks hitting 52-week highs"
+            ),
+            "New Lows": st.column_config.NumberColumn(
+                "New Lows",
+                help="Number of stocks hitting 52-week lows"
+            ),
+            "Net Highs (H-L)": st.column_config.NumberColumn(
+                "Net Highs (H-L)",
+                help="Positive = Bullish, Negative = Bearish"
+            ),
+            "% Stocks at High": st.column_config.NumberColumn(
+                "% Stocks at High",
+                format="%.1f%%"
+            )
+        }
+    )
