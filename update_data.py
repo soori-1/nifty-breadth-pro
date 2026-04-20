@@ -2,6 +2,7 @@ import yfinance as yf
 import pandas as pd
 import time
 from datetime import datetime
+import os
 
 # 1. Configuration
 FILE_NAME = "Nifty500_Master_Data.csv"
@@ -17,18 +18,17 @@ def run_update():
     end_date = datetime.now().strftime('%Y-%m-%d')
     print(f"Fetching data from {start_date} to {end_date}...")
 
-    # Download Nifty 500 Index first to establish the master timeline
+    # A. Download Index Price & Flatten it immediately
     idx_raw = yf.download(INDEX_TICKER, start=start_date, end=end_date, progress=False)
     
-    # Flatten MultiIndex if present
+    # Logic to handle both MultiIndex and Single Index responses
     if isinstance(idx_raw.columns, pd.MultiIndex):
         nifty_series = idx_raw['Adj Close'].iloc[:, 0]
     else:
         nifty_series = idx_raw['Adj Close'] if 'Adj Close' in idx_raw.columns else idx_raw['Close']
     
-    nifty_series = nifty_series.squeeze() # Ensure 1D
-
-    # Download 500 stocks in batches
+    # B. Download 500 stocks in batches
+    # We use the nifty_series index as our master timeline
     all_highs = pd.DataFrame(index=nifty_series.index)
     all_lows = pd.DataFrame(index=nifty_series.index)
     batch_size = 40
@@ -38,19 +38,20 @@ def run_update():
         data = yf.download(batch, start=start_date, end=end_date, progress=False)
         
         if not data.empty:
-            # Safely extract High/Low
+            # Extract High/Low correctly for MultiIndex
             if 'High' in data.columns:
                 h = data['High']
-                all_highs = all_highs.join(h, how='left', rsuffix='_high')
+                all_highs = all_highs.join(h, how='left', rsuffix='_h')
             if 'Low' in data.columns:
                 l = data['Low']
-                all_lows = all_lows.join(l, how='left', rsuffix='_low')
-                
+                all_lows = all_lows.join(l, how='left', rsuffix='_l')
+        
         print(f"Progress: {min(i+batch_size, 500)}/500 stocks...")
         time.sleep(1)
 
-    print("Calculating metrics...")
-    # 52-Week Logic
+    print("Calculating Metrics...")
+    # C. Calculate 52-Week Breadth
+    # shift(1) ensures we don't include today's high in the "prev 52-week" calc
     rolling_h = all_highs.shift(1).rolling(window=252).max()
     rolling_l = all_lows.shift(1).rolling(window=252).min()
     
@@ -58,19 +59,19 @@ def run_update():
     low_count = (all_lows <= rolling_l).sum(axis=1)
     active = all_highs.notna().sum(axis=1)
 
-    # Build Final DataFrame
+    # D. Build Final CSV Table
     final_df = pd.DataFrame({
         'DATE': nifty_series.index,
-        'NIFTY_500_CLOSE': nifty_series.values,
-        '52W_HIGH': high_count.values,
-        '52W_LOW': low_count.values,
-        'PCT_HIGH': ((high_count / active) * 100).fillna(0).round(1).values
+        'NIFTY_500_CLOSE': nifty_series.values.flatten(),
+        '52W_HIGH': high_count.values.flatten(),
+        '52W_LOW': low_count.values.flatten(),
+        'PCT_HIGH': ((high_count / active) * 100).fillna(0).round(1).values.flatten()
     })
 
-    # Start from 2000 and save
+    # Filter for 2000 onwards and save
     final_df = final_df[final_df['DATE'] >= '2000-01-01']
     final_df.to_csv(FILE_NAME, index=False)
-    print(f"SUCCESS: {FILE_NAME} generated with {len(final_df)} rows.")
+    print(f"SUCCESS: {FILE_NAME} saved with {len(final_df)} days of data.")
 
 if __name__ == "__main__":
     run_update()
