@@ -38,16 +38,16 @@ def load_data():
 df = load_data()
 
 # 4. Dashboard UI
+# 4. Dashboard UI
 if df.empty:
-    st.warning("⚠️ CSV is currently empty or not found. Please wait for the GitHub Action to finish.")
+    st.warning("⚠️ CSV is currently empty or not found.")
 else:
-    # --- CHARTS ---
-    fig = make_subplots(
-        rows=3, cols=1, shared_xaxes=True, vertical_spacing=0.04,
-        subplot_titles=("Nifty 500 Index Price", "New Highs (+) and Lows (-)", "Net High-Low Oscillator & 10-Day Trend (EMA)"),
-        row_heights=[0.4, 0.3, 0.3] 
-    )
+    # Show Last Updated Timestamp
+    last_update = df['DATE'].max().strftime('%d %b %Y')
+    st.info(f"📅 Data updated as of: **{last_update}**")
 
+    # --- CHARTS ---
+    # (Keep your existing chart code here...)
     # Top: Nifty Line
     fig.add_trace(go.Scatter(
         x=df['DATE'], y=df['NIFTY_500_CLOSE'], 
