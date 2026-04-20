@@ -1,0 +1,21 @@
+name: Daily Market Update
+on:
+  schedule:
+    - cron: '30 10 * * 1-5' # 4:00 PM IST (Mon-Fri)
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      - run: pip install -r requirements.txt
+      - run: python update_data.py
+      - run: |
+          git config user.name "Automated"
+          git config user.email "actions@github.com"
+          git add Nifty500_Master_Data.csv
+          git commit -m "Update $(date)" || exit 0
+          git push
