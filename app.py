@@ -4,23 +4,9 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import os
 
-# 1. Page Configuration MUST be the first Streamlit command
 st.set_page_config(layout="wide", page_title="Nifty 500 Pro Dashboard")
+st.title("📊 Nifty 500 Market Breadth")
 
-# 2. Hide all Streamlit Branding (Boss-Ready Mode)
-hide_st_style = """
-            <style>
-            #MainMenu {visibility: hidden;}
-            footer {visibility: hidden;}
-            header {visibility: hidden;}
-            </style>
-            """
-st.markdown(hide_st_style, unsafe_allow_html=True)
-
-st.title("📊 Right Horizons Nifty 500 Market Breadth")
-
-# 3. Fast Loading Data Engine (1-Hour Cache)
-@st.cache_data(ttl=3600) 
 def load_data():
     if not os.path.exists("Nifty500_Master_Data.csv"):
         return pd.DataFrame()
@@ -28,8 +14,10 @@ def load_data():
     df = pd.read_csv("Nifty500_Master_Data.csv")
     df['DATE'] = pd.to_datetime(df['DATE'])
     
-    # Calculate Net Highs and EMA Trend
+    # Calculate Net Highs
     df['Net_Highs'] = df['52W_HIGH'] - df['52W_LOW']
+    
+    # Add a 10-Day Exponential Moving Average (EMA)
     df['Net_Highs_EMA'] = df['Net_Highs'].ewm(span=10, adjust=False).mean()
     
     df = df.sort_values(by='DATE')
@@ -37,24 +25,23 @@ def load_data():
 
 df = load_data()
 
-# 4. Dashboard UI
-# 4. Dashboard UI
 if df.empty:
-    st.warning("⚠️ CSV is currently empty or not found.")
+    st.warning("⚠️ CSV is currently empty or not found. Please wait for the GitHub Action to finish.")
 else:
-    # Show Last Updated Timestamp
-    last_update = df['DATE'].max().strftime('%d %b %Y')
-    st.info(f"📅 Data updated as of: **{last_update}**")
+    # 3 Linked Charts
+    fig = make_subplots(
+        rows=3, cols=1, shared_xaxes=True, vertical_spacing=0.04,
+        subplot_titles=("Nifty 500 Index Price", "New Highs (+) and Lows (-)", "Net High-Low Oscillator & 10-Day Trend (EMA)"),
+        row_heights=[0.4, 0.3, 0.3] 
+    )
 
-    # --- CHARTS ---
-    # (Keep your existing chart code here...)
-    # Top: Nifty Line
+    # --- Top: Nifty Line ---
     fig.add_trace(go.Scatter(
         x=df['DATE'], y=df['NIFTY_500_CLOSE'], 
         name="Index", line=dict(color='#00d4ff', width=2)
     ), row=1, col=1)
 
-    # Middle: High/Low Bars
+    # --- Middle: High/Low Bars ---
     fig.add_trace(go.Bar(
         x=df['DATE'], y=df['52W_HIGH'], 
         name="Highs", marker_color='#26a69a'
@@ -65,7 +52,7 @@ else:
         name="Lows", marker_color='#ef5350'
     ), row=2, col=1)
 
-    # Bottom: Net Highs Line Graph
+    # --- Bottom: Proper Line Graph (Net Highs) ---
     fig.add_trace(go.Scatter(
         x=df['DATE'], y=df['Net_Highs'], 
         name="Daily Net", mode='lines', line=dict(color='rgba(255, 255, 255, 0.4)', width=1)
@@ -81,10 +68,11 @@ else:
     fig.update_layout(height=1000, template="plotly_dark", hovermode="x unified", showlegend=False)
     st.plotly_chart(fig, use_container_width=True)
 
-    # --- DATA TABLE ---
-    st.subheader("Latest Market Data")
+   # --- STYLED DATA TABLE ---
+ # --- STYLED DATA TABLE ---
+    st.subheader("Latest Market Data (Color-Coded)")
     
-    # Format the data cleanly
+    # 1. Format the data
     display_df = df.sort_values(by='DATE', ascending=False).head(20).copy()
     display_df['DATE'] = display_df['DATE'].dt.strftime('%d %b %Y') 
     
@@ -99,4 +87,31 @@ else:
         'PCT_HIGH': '% Stocks at High'
     }, inplace=True)
 
-    # Streamlit Native Configuration for rendering without
+    # 2. Use Streamlit's built-in column configuration for foolproof styling
+    st.dataframe(
+        display_df,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "Index Close": st.column_config.NumberColumn(
+                "Index Close",
+                format="%.2f"
+            ),
+            "New Highs": st.column_config.NumberColumn(
+                "New Highs",
+                help="Number of stocks hitting 52-week highs"
+            ),
+            "New Lows": st.column_config.NumberColumn(
+                "New Lows",
+                help="Number of stocks hitting 52-week lows"
+            ),
+            "Net Highs (H-L)": st.column_config.NumberColumn(
+                "Net Highs (H-L)",
+                help="Positive = Bullish, Negative = Bearish"
+            ),
+            "% Stocks at High": st.column_config.NumberColumn(
+                "% Stocks at High",
+                format="%.1f%%"
+            )
+        }
+    )
