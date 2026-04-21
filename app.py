@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 import os
 
 # 1. Clean Corporate Page Config
@@ -18,10 +19,10 @@ hide_st_style = """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
 # Professional Header
-st.title("Right Horizons - Nifty 500 Market Breadth Analysis")
-st.markdown("<p style='color: gray;'>Internal Quantitative Tool | Daily 52-Week High/Low Ledger</p>", unsafe_allow_html=True)
+st.title("Nifty 500 Breadth Terminal")
+st.markdown("<p style='color: #8c919c;'>Internal Quantitative Tool | Synchronized Price & Breadth Action</p>", unsafe_allow_html=True)
 
-# 3. High-Speed Data Loader (Fixes the Slowness)
+# 3. High-Speed Data Loader
 @st.cache_data(ttl=3600) 
 def load_data():
     if not os.path.exists("Nifty500_Master_Data.csv"):
@@ -39,7 +40,6 @@ if df.empty:
     st.error("System initializing. Please ensure data pipeline is complete.")
 else:
     # --- EXECUTIVE KPI ROW ---
-    # Gets the latest day and the previous day to show daily changes
     latest = df.iloc[-1]
     prev = df.iloc[-2]
     
@@ -49,59 +49,96 @@ else:
     with col2:
         st.metric("New 52W Highs", int(latest['52W_HIGH']), int(latest['52W_HIGH'] - prev['52W_HIGH']))
     with col3:
-        # Inverting the delta color for lows (more lows is bad, fewer is good)
         st.metric("New 52W Lows", int(latest['52W_LOW']), int(latest['52W_LOW'] - prev['52W_LOW']), delta_color="inverse")
     with col4:
         st.metric("Net Breadth (H-L)", int(latest['Net_Highs']), int(latest['Net_Highs'] - prev['Net_Highs']))
 
     st.divider()
 
-    # --- TOP CHART: NIFTY 500 ---
-    st.subheader("Index Performance")
-    fig_idx = go.Figure()
-    fig_idx.add_trace(go.Scatter(x=df['DATE'], y=df['NIFTY_500_CLOSE'], name="Nifty 500", line=dict(color='#2962FF', width=2)))
-    fig_idx.update_layout(height=350, margin=dict(l=0, r=0, t=10, b=0), hovermode="x unified")
-    st.plotly_chart(fig_idx, use_container_width=True)
-
-    st.divider()
-
-    # --- BOTTOM CHART: INTERACTIVE BREADTH SELECTOR ---
-    st.subheader("Breadth Indicators")
-    
-    # The Toggle Switch
+    # --- INTERACTIVE INDICATOR SELECTOR ---
     chart_choice = st.radio(
-        "Select Metric to View:",
-        ["52-Week Highs", "52-Week Lows", "Net Highs (Highs - Lows)"],
+        "Select Lower Indicator:",
+        ["Net Highs (H-L)", "52-Week Highs", "52-Week Lows"],
         horizontal=True
     )
 
-    fig_breadth = go.Figure()
+    # --- TRADINGVIEW STYLE SYNCHRONIZED CHART ---
+    # Create subplots with shared X-axis so zooming one zooms both
+    fig = make_subplots(
+        rows=2, cols=1, 
+        shared_xaxes=True, 
+        row_heights=[0.7, 0.3], # Price gets 70% of space, Indicator gets 30%
+        vertical_spacing=0.02
+    )
 
-    # Display the correct line based on user choice
-    if chart_choice == "52-Week Highs":
-        fig_breadth.add_trace(go.Scatter(
-            x=df['DATE'], y=df['52W_HIGH'], name="Highs", 
-            line=dict(color='#00C853', width=2), fill='tozeroy', fillcolor='rgba(0, 200, 83, 0.1)'
-        ))
-    elif chart_choice == "52-Week Lows":
-        fig_breadth.add_trace(go.Scatter(
-            x=df['DATE'], y=df['52W_LOW'], name="Lows", 
-            line=dict(color='#D50000', width=2), fill='tozeroy', fillcolor='rgba(213, 0, 0, 0.1)'
-        ))
-    else:
-        fig_breadth.add_trace(go.Scatter(
+    # TOP CHART: Nifty 500 Price Line
+    fig.add_trace(go.Scatter(
+        x=df['DATE'], y=df['NIFTY_500_CLOSE'], 
+        name="Nifty 500", 
+        line=dict(color='#2962FF', width=2), # TradingView Blue
+        fill='tozeroy', fillcolor='rgba(41, 98, 255, 0.05)' 
+    ), row=1, col=1)
+
+    # BOTTOM CHART: Chosen Breadth Indicator
+    if chart_choice == "Net Highs (H-L)":
+        fig.add_trace(go.Scatter(
             x=df['DATE'], y=df['Net_Highs'], name="Net Highs", 
-            line=dict(color='#9C27B0', width=2), fill='tozeroy', fillcolor='rgba(156, 39, 176, 0.1)'
-        ))
-        # Add the Zero Line for Net Highs
-        fig_breadth.add_hline(y=0, line_dash="dash", line_color="gray", line_width=1)
+            line=dict(color='#E0E0E0', width=1.5), fill='tozeroy', fillcolor='rgba(255, 255, 255, 0.05)'
+        ), row=2, col=1)
+        fig.add_hline(y=0, line_dash="dash", line_color="#F44336", line_width=1, row=2, col=1) # Zero Line
 
-    fig_breadth.update_layout(height=400, margin=dict(l=0, r=0, t=10, b=0), hovermode="x unified")
-    st.plotly_chart(fig_breadth, use_container_width=True)
+    elif chart_choice == "52-Week Highs":
+        fig.add_trace(go.Scatter(
+            x=df['DATE'], y=df['52W_HIGH'], name="Highs", 
+            line=dict(color='#00E676', width=1.5), fill='tozeroy', fillcolor='rgba(0, 230, 118, 0.1)'
+        ), row=2, col=1)
 
-    # --- PROFESSIONAL DATA TABLE ---
+    elif chart_choice == "52-Week Lows":
+        fig.add_trace(go.Scatter(
+            x=df['DATE'], y=df['52W_LOW'], name="Lows", 
+            line=dict(color='#FF5252', width=1.5), fill='tozeroy', fillcolor='rgba(255, 82, 82, 0.1)'
+        ), row=2, col=1)
+
+    # --- TRADINGVIEW UI FORMATTING ---
+    fig.update_layout(
+        height=650,
+        plot_bgcolor="#131722", # TradingView Dark Mode Background
+        paper_bgcolor="#131722",
+        font=dict(color="#d1d4dc"),
+        hovermode="x unified", # Shows tooltip for both charts simultaneously
+        showlegend=False,
+        margin=dict(l=10, r=10, t=10, b=10)
+    )
+
+    # Add TradingView Range Selector Buttons (1W, 1M, 3M, etc.) to the X-Axis
+    fig.update_xaxes(
+        row=1, col=1,
+        rangeselector=dict(
+            buttons=list([
+                dict(count=7, label="1W", step="day", stepmode="backward"),
+                dict(count=1, label="1M", step="month", stepmode="backward"),
+                dict(count=3, label="3M", step="month", stepmode="backward"),
+                dict(count=6, label="6M", step="month", stepmode="backward"),
+                dict(count=1, label="1Y", step="year", stepmode="backward"),
+                dict(count=2, label="2Y", step="year", stepmode="backward"),
+                dict(step="all", label="All")
+            ]),
+            bgcolor="#2A2E39",
+            activecolor="#2962FF",
+            font=dict(color="white"),
+            y=1.05 # Positions buttons above the chart
+        ),
+        type="date"
+    )
+
+    # Add Crosshairs (Spike lines) to mimic TradingView mouse tracking
+    fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='#2B2B43', showspikes=True, spikecolor="#787B86", spikesnap="cursor", spikemode="across")
+    fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='#2B2B43', showspikes=True, spikecolor="#787B86", spikethickness=1)
+
+    st.plotly_chart(fig, use_container_width=True)
+
+    # --- DATA TABLE ---
     st.subheader("Historical Ledger")
-    
     display_df = df.sort_values(by='DATE', ascending=False).head(30).copy()
     display_df['DATE'] = display_df['DATE'].dt.strftime('%d %b %Y') 
     
