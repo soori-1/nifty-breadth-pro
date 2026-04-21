@@ -4,10 +4,9 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import os
 
-# 1. Clean Corporate Page Config
 st.set_page_config(layout="wide", page_title="Market Breadth Terminal")
 
-# 2. Hide all Streamlit Branding
+# Hide Streamlit Branding
 hide_st_style = """
             <style>
             #MainMenu {visibility: hidden;}
@@ -18,11 +17,9 @@ hide_st_style = """
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
-# Professional Header
 st.title("Nifty 500 Breadth Terminal")
 st.markdown("<p style='color: #8c919c;'>Internal Quantitative Tool | Synchronized Price & Breadth Action</p>", unsafe_allow_html=True)
 
-# 3. High-Speed Data Loader
 @st.cache_data(ttl=3600) 
 def load_data():
     if not os.path.exists("Nifty500_Master_Data.csv"):
@@ -66,7 +63,6 @@ else:
         )
         
     with ctrl_col2:
-        # We must keep the slider as Plotly does not allow cursor-dragging subplots
         split_ratio = st.slider(
             "Adjust Chart Split (Price Area %)", 
             min_value=40, max_value=90, value=70, step=5
@@ -75,10 +71,11 @@ else:
     top_height = split_ratio / 100.0
     bottom_height = 1.0 - top_height
 
-    # --- SYNCHRONIZED CHART ---
+    # --- SYNCHRONIZED CHART (FIXED) ---
+    # We remove shared_xaxes=True to bypass the Plotly bug
     fig = make_subplots(
         rows=2, cols=1, 
-        shared_xaxes=True, 
+        shared_xaxes=False, 
         row_heights=[top_height, bottom_height], 
         vertical_spacing=0.03
     )
@@ -123,7 +120,13 @@ else:
         dragmode="pan"
     )
 
-    # FIX: Properly anchoring the range selectors to the most recent date
+    # NEW FIX: Manually link the X-axes so zooming one zooms both perfectly
+    fig.update_xaxes(matches='x')
+    
+    # Hide the date labels on the top chart to make it look seamless
+    fig.update_xaxes(showticklabels=False, row=1, col=1)
+
+    # Apply Range Selectors to the Top Chart
     fig.update_xaxes(
         type="date",
         rangeselector=dict(
