@@ -18,7 +18,7 @@ hide_st_style = """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
 st.title("Nifty 500 Breadth Terminal")
-st.markdown("<p style='color: #8c919c;'>Internal Quantitative Tool | Synchronized Price & Breadth Action</p>", unsafe_allow_html=True)
+st.markdown("<p style='color: #5f6368;'>Internal Quantitative Tool | Synchronized Price & Breadth Action</p>", unsafe_allow_html=True)
 
 @st.cache_data(ttl=3600) 
 def load_data():
@@ -71,8 +71,7 @@ else:
     top_height = split_ratio / 100.0
     bottom_height = 1.0 - top_height
 
-    # --- SYNCHRONIZED CHART (FIXED) ---
-    # We remove shared_xaxes=True to bypass the Plotly bug
+    # --- SYNCHRONIZED CHART (LIGHT MODE COLORS) ---
     fig = make_subplots(
         rows=2, cols=1, 
         shared_xaxes=False, 
@@ -80,53 +79,50 @@ else:
         vertical_spacing=0.03
     )
 
-    # TOP CHART: Nifty 500 
+    # TOP CHART: Nifty 500 (Now Corporate Blue)
     fig.add_trace(go.Scatter(
         x=df['DATE'], y=df['NIFTY_500_CLOSE'], 
         name="Nifty 500", 
-        line=dict(color='#FFFFFF', width=2), 
-        fill='tozeroy', fillcolor='rgba(255, 255, 255, 0.05)' 
+        line=dict(color='#1A73E8', width=2), 
+        fill='tozeroy', fillcolor='rgba(26, 115, 232, 0.05)' 
     ), row=1, col=1)
 
     # BOTTOM CHART: Indicator
     if chart_choice == "Net Highs (H-L)":
         fig.add_trace(go.Scatter(
             x=df['DATE'], y=df['Net_Highs'], name="Net Highs", 
-            line=dict(color='#E0E0E0', width=1.5), fill='tozeroy', fillcolor='rgba(255, 255, 255, 0.05)'
+            line=dict(color='#607D8B', width=1.5), fill='tozeroy', fillcolor='rgba(96, 125, 139, 0.05)'
         ), row=2, col=1)
-        fig.add_hline(y=0, line_dash="dash", line_color="#F44336", line_width=1, row=2, col=1)
+        fig.add_hline(y=0, line_dash="dash", line_color="#D32F2F", line_width=1.5, row=2, col=1)
 
     elif chart_choice == "52-Week Highs":
         fig.add_trace(go.Scatter(
             x=df['DATE'], y=df['52W_HIGH'], name="Highs", 
-            line=dict(color='#00E676', width=1.5), fill='tozeroy', fillcolor='rgba(0, 230, 118, 0.1)'
+            line=dict(color='#0F9D58', width=1.5), fill='tozeroy', fillcolor='rgba(15, 157, 88, 0.1)'
         ), row=2, col=1)
 
     elif chart_choice == "52-Week Lows":
         fig.add_trace(go.Scatter(
             x=df['DATE'], y=df['52W_LOW'], name="Lows", 
-            line=dict(color='#FF5252', width=1.5), fill='tozeroy', fillcolor='rgba(255, 82, 82, 0.1)'
+            line=dict(color='#DB4437', width=1.5), fill='tozeroy', fillcolor='rgba(219, 68, 55, 0.1)'
         ), row=2, col=1)
 
-    # --- UI & INTERACTIVITY ---
+    # --- UI & INTERACTIVITY (PURE WHITE BACKGROUND) ---
     fig.update_layout(
         height=700, 
-        plot_bgcolor="#131722", 
-        paper_bgcolor="#131722",
-        font=dict(color="#d1d4dc"),
+        plot_bgcolor="#FFFFFF", 
+        paper_bgcolor="#FFFFFF",
+        font=dict(color="#202124"), # Dark Gray text for readability
         hovermode="x unified",
         showlegend=False,
         margin=dict(l=10, r=10, t=10, b=10),
         dragmode="pan"
     )
 
-    # NEW FIX: Manually link the X-axes so zooming one zooms both perfectly
     fig.update_xaxes(matches='x')
-    
-    # Hide the date labels on the top chart to make it look seamless
     fig.update_xaxes(showticklabels=False, row=1, col=1)
 
-    # Apply Range Selectors to the Top Chart
+    # Range Selectors styled for Light Mode
     fig.update_xaxes(
         type="date",
         rangeselector=dict(
@@ -139,9 +135,9 @@ else:
                 dict(count=2, label="2Y", step="year", stepmode="backward"),
                 dict(step="all", label="All")
             ]),
-            bgcolor="#2A2E39",
-            activecolor="#4C525E",
-            font=dict(color="white"),
+            bgcolor="#F1F3F4",
+            activecolor="#E8EAED",
+            font=dict(color="#202124"),
             y=1.05,
             x=0
         ),
@@ -151,8 +147,9 @@ else:
     fig.update_yaxes(rangemode="nonnegative", fixedrange=False, row=1, col=1)
     fig.update_yaxes(fixedrange=False, row=2, col=1)
 
-    fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='#2B2B43', showspikes=True, spikecolor="#787B86", spikesnap="cursor", spikemode="across")
-    fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='#2B2B43', showspikes=True, spikecolor="#787B86", spikethickness=1)
+    # Soft gray gridlines
+    fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='#F1F3F4', showspikes=True, spikecolor="#9AA0A6", spikesnap="cursor", spikemode="across")
+    fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='#F1F3F4', showspikes=True, spikecolor="#9AA0A6", spikethickness=1)
 
     st.plotly_chart(
         fig, 
