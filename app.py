@@ -27,10 +27,15 @@ def load_data():
     df = pd.read_csv("Nifty500_Master_Data.csv")
     df['DATE'] = pd.to_datetime(df['DATE'])
     df = df.sort_values(by='DATE').reset_index(drop=True)
-    df['Net_Highs'] = df['52W_HIGH'] - df['52W_LOW']
-    df['NIFTY_200_SMA'] = df['NIFTY_500_CLOSE'].rolling(window=200).mean()
     
-    # Failsafe: If the GitHub action hasn't finished yet, don't crash
+    # 1. Forward-fill any missing Nifty 500 prices
+    df['NIFTY_500_CLOSE'] = df['NIFTY_500_CLOSE'].ffill()
+    
+    # 2. Calculate Indicators safely
+    df['Net_Highs'] = df['52W_HIGH'] - df['52W_LOW']
+    df['NIFTY_200_SMA'] = df['NIFTY_500_CLOSE'].rolling(window=200, min_periods=1).mean()
+    
+    # Failsafe: If the GitHub action hasn't finished yet
     if 'PCT_ABOVE_200SMA' not in df.columns:
         df['PCT_ABOVE_200SMA'] = 0.0
         df['ABOVE_200SMA'] = 0
