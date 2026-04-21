@@ -3,10 +3,12 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import os
+from datetime import timedelta
 
+# 1. Clean Corporate Page Config
 st.set_page_config(layout="wide", page_title="Market Breadth Terminal")
 
-# Hide Streamlit Branding
+# 2. Hide all Streamlit Branding
 hide_st_style = """
             <style>
             #MainMenu {visibility: hidden;}
@@ -17,9 +19,11 @@ hide_st_style = """
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
+# Professional Header
 st.title("Nifty 500 Breadth Terminal")
 st.markdown("<p style='color: #8c919c;'>Internal Quantitative Tool | Synchronized Price & Breadth Action</p>", unsafe_allow_html=True)
 
+# 3. High-Speed Data Loader
 @st.cache_data(ttl=3600) 
 def load_data():
     if not os.path.exists("Nifty500_Master_Data.csv"):
@@ -67,7 +71,7 @@ else:
         vertical_spacing=0.02
     )
 
-    # TOP CHART: Nifty 500
+    # TOP CHART: Nifty 500 (White Line)
     fig.add_trace(go.Scatter(
         x=df['DATE'], y=df['NIFTY_500_CLOSE'], 
         name="Nifty 500", 
@@ -95,7 +99,11 @@ else:
             line=dict(color='#FF5252', width=1.5), fill='tozeroy', fillcolor='rgba(255, 82, 82, 0.1)'
         ), row=2, col=1)
 
-    # --- UI & INTERACTIVITY (The Fix for Zooming) ---
+    # --- UI & INTERACTIVITY ---
+    # Calculate dates for auto-zooming on load
+    latest_date = df['DATE'].iloc[-1]
+    six_months_ago = latest_date - pd.Timedelta(days=180)
+
     fig.update_layout(
         height=650,
         plot_bgcolor="#131722", 
@@ -104,48 +112,42 @@ else:
         hovermode="x unified",
         showlegend=False,
         margin=dict(l=10, r=10, t=10, b=10),
-        # Enables drag to pan across both axes
-        dragmode="pan" 
+        dragmode="pan", # Allows left-click panning
+        
+        # FIX: Global X-Axis with Range Selectors anchored to the current date
+        xaxis=dict(
+            type="date",
+            range=[six_months_ago, latest_date], # Auto-zooms to the last 6 months on load
+            rangeselector=dict(
+                buttons=list([
+                    dict(count=7, label="1W", step="day", stepmode="backward"),
+                    dict(count=1, label="1M", step="month", stepmode="backward"),
+                    dict(count=3, label="3M", step="month", stepmode="backward"),
+                    dict(count=6, label="6M", step="month", stepmode="backward"),
+                    dict(count=1, label="1Y", step="year", stepmode="backward"),
+                    dict(count=2, label="2Y", step="year", stepmode="backward"),
+                    dict(step="all", label="All")
+                ]),
+                bgcolor="#2A2E39",
+                activecolor="#4C525E",
+                font=dict(color="white"),
+                y=1.05,
+                x=0
+            )
+        )
     )
 
-    # Range Selectors
-    fig.update_xaxes(
-        row=1, col=1,
-        rangeselector=dict(
-            buttons=list([
-                dict(count=7, label="1W", step="day", stepmode="backward"),
-                dict(count=1, label="1M", step="month", stepmode="backward"),
-                dict(count=3, label="3M", step="month", stepmode="backward"),
-                dict(count=6, label="6M", step="month", stepmode="backward"),
-                dict(count=1, label="1Y", step="year", stepmode="backward"),
-                dict(count=2, label="2Y", step="year", stepmode="backward"),
-                dict(step="all", label="All")
-            ]),
-            bgcolor="#2A2E39",
-            activecolor="#4C525E",
-            font=dict(color="white"),
-            y=1.05
-        ),
-        type="date"
-    )
-
-    # FIX: Enable Auto-Ranging for Y-Axes when zooming X-Axis
-    fig.update_yaxes(fixedrange=False, row=1, col=1)
-    fig.update_yaxes(fixedrange=False, row=2, col=1)
-
-    # Crosshairs
+    # Crosshairs and Gridlines
     fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='#2B2B43', showspikes=True, spikecolor="#787B86", spikesnap="cursor", spikemode="across")
     fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='#2B2B43', showspikes=True, spikecolor="#787B86", spikethickness=1)
 
-    # The config that unlocks full TradingView style interaction
+    # The TradingView Interaction Config
     st.plotly_chart(
         fig, 
         use_container_width=True, 
         config={
-            'scrollZoom': True,           # Allows mouse wheel zoom on X/Y axes
-            'displayModeBar': True,       # Shows the mode bar temporarily on hover
-            'modeBarButtonsToRemove': ['lasso2d', 'select2d'], # Remove useless drawing tools
-            'displaylogo': False          # Hide Plotly logo
+            'scrollZoom': True,           
+            'displayModeBar': False,       
         }
     )
 
