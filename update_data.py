@@ -59,17 +59,23 @@ def run_update():
         print(f"Batch {i//batch_size + 1} Done...")
         time.sleep(1)
 
-    # D. Breadth Math
+  
+   # D. Breadth Math
     print("Calculating Breadth Metrics...")
-    prev_52w_highs = all_highs.shift(1).rolling(window=252).max()
-    prev_52w_lows = all_lows.shift(1).rolling(window=252).min()
+    # .ffill() copies the previous day's data if there is a blank gap
+    all_highs = all_highs.ffill()
+    all_lows = all_lows.ffill()
+    all_closes = all_closes.ffill()
+
+    prev_52w_highs = all_highs.shift(1).rolling(window=252, min_periods=1).max()
+    prev_52w_lows = all_lows.shift(1).rolling(window=252, min_periods=1).min()
     
     high_counts = (all_highs >= prev_52w_highs).sum(axis=1)
     low_counts = (all_lows <= prev_52w_lows).sum(axis=1)
     active_count = all_highs.notna().sum(axis=1)
 
-    # NEW: Calculate how many stocks are above their own 200 SMA
-    individual_200_sma = all_closes.rolling(window=200).mean()
+    # NEW: Failsafe 200 SMA calculation
+    individual_200_sma = all_closes.rolling(window=200, min_periods=50).mean()
     above_200sma_counts = (all_closes > individual_200_sma).sum(axis=1)
 
     # E. Final Table Construction 
