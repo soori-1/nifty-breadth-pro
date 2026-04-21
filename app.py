@@ -3,7 +3,6 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import os
-from datetime import timedelta
 
 # 1. Clean Corporate Page Config
 st.set_page_config(layout="wide", page_title="Market Breadth Terminal")
@@ -56,19 +55,35 @@ else:
 
     st.divider()
 
-    # --- INTERACTIVE INDICATOR SELECTOR ---
-    chart_choice = st.radio(
-        "Select Lower Indicator:",
-        ["Net Highs (H-L)", "52-Week Highs", "52-Week Lows"],
-        horizontal=True
-    )
+    # --- TERMINAL CONTROLS ---
+    # Create two columns for the controls to keep the UI clean
+    ctrl_col1, ctrl_col2 = st.columns([1, 1])
+    
+    with ctrl_col1:
+        chart_choice = st.radio(
+            "Select Lower Indicator:",
+            ["Net Highs (H-L)", "52-Week Highs", "52-Week Lows"],
+            horizontal=True
+        )
+        
+    with ctrl_col2:
+        # Dynamic layout slider to act as our "Movable Separator"
+        split_ratio = st.slider(
+            "Adjust Chart Split (Price Area %)", 
+            min_value=40, max_value=90, value=70, step=5,
+            help="Slide to increase or decrease the height of the top price chart."
+        )
+
+    # Calculate the dynamic row heights based on the slider
+    top_height = split_ratio / 100.0
+    bottom_height = 1.0 - top_height
 
     # --- SYNCHRONIZED CHART ---
     fig = make_subplots(
         rows=2, cols=1, 
         shared_xaxes=True, 
-        row_heights=[0.7, 0.3],
-        vertical_spacing=0.02
+        row_heights=[top_height, bottom_height], # Uses the dynamic slider values
+        vertical_spacing=0.03
     )
 
     # TOP CHART: Nifty 500 (White Line)
@@ -100,24 +115,22 @@ else:
         ), row=2, col=1)
 
     # --- UI & INTERACTIVITY ---
-    # Calculate dates for auto-zooming on load
     latest_date = df['DATE'].iloc[-1]
     six_months_ago = latest_date - pd.Timedelta(days=180)
 
     fig.update_layout(
-        height=650,
+        height=700, # Slightly taller overall to accommodate the split better
         plot_bgcolor="#131722", 
         paper_bgcolor="#131722",
         font=dict(color="#d1d4dc"),
         hovermode="x unified",
         showlegend=False,
         margin=dict(l=10, r=10, t=10, b=10),
-        dragmode="pan", # Allows left-click panning
+        dragmode="pan", 
         
-        # FIX: Global X-Axis with Range Selectors anchored to the current date
         xaxis=dict(
             type="date",
-            range=[six_months_ago, latest_date], # Auto-zooms to the last 6 months on load
+            range=[six_months_ago, latest_date], 
             rangeselector=dict(
                 buttons=list([
                     dict(count=7, label="1W", step="day", stepmode="backward"),
@@ -137,11 +150,17 @@ else:
         )
     )
 
-    # Crosshairs and Gridlines
+    # FIX: Lock Top Y-Axis to prevent negative numbers
+    fig.update_yaxes(rangemode="nonnegative", fixedrange=False, row=1, col=1)
+    
+    # Bottom Y-Axis stays free for negative oscillator values
+    fig.update_yaxes(fixedrange=False, row=2, col=1)
+
+    # Crosshairs
     fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='#2B2B43', showspikes=True, spikecolor="#787B86", spikesnap="cursor", spikemode="across")
     fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='#2B2B43', showspikes=True, spikecolor="#787B86", spikethickness=1)
 
-    # The TradingView Interaction Config
+    # TradingView Interaction Config
     st.plotly_chart(
         fig, 
         use_container_width=True, 
