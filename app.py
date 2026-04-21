@@ -67,7 +67,7 @@ else:
         vertical_spacing=0.02
     )
 
-    # TOP CHART: Nifty 500 (Now White)
+    # TOP CHART: Nifty 500
     fig.add_trace(go.Scatter(
         x=df['DATE'], y=df['NIFTY_500_CLOSE'], 
         name="Nifty 500", 
@@ -95,7 +95,7 @@ else:
             line=dict(color='#FF5252', width=1.5), fill='tozeroy', fillcolor='rgba(255, 82, 82, 0.1)'
         ), row=2, col=1)
 
-    # --- UI & INTERACTIVITY ---
+    # --- UI & INTERACTIVITY (The Fix for Zooming) ---
     fig.update_layout(
         height=650,
         plot_bgcolor="#131722", 
@@ -104,7 +104,8 @@ else:
         hovermode="x unified",
         showlegend=False,
         margin=dict(l=10, r=10, t=10, b=10),
-        dragmode="pan" # Allows left-click drag to pan the timeline
+        # Enables drag to pan across both axes
+        dragmode="pan" 
     )
 
     # Range Selectors
@@ -128,11 +129,25 @@ else:
         type="date"
     )
 
+    # FIX: Enable Auto-Ranging for Y-Axes when zooming X-Axis
+    fig.update_yaxes(fixedrange=False, row=1, col=1)
+    fig.update_yaxes(fixedrange=False, row=2, col=1)
+
+    # Crosshairs
     fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='#2B2B43', showspikes=True, spikecolor="#787B86", spikesnap="cursor", spikemode="across")
     fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='#2B2B43', showspikes=True, spikecolor="#787B86", spikethickness=1)
 
-    # CRITICAL: config={'scrollZoom': True} unlocks mouse wheel zooming
-    st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True, 'displayModeBar': False})
+    # The config that unlocks full TradingView style interaction
+    st.plotly_chart(
+        fig, 
+        use_container_width=True, 
+        config={
+            'scrollZoom': True,           # Allows mouse wheel zoom on X/Y axes
+            'displayModeBar': True,       # Shows the mode bar temporarily on hover
+            'modeBarButtonsToRemove': ['lasso2d', 'select2d'], # Remove useless drawing tools
+            'displaylogo': False          # Hide Plotly logo
+        }
+    )
 
     # --- DATA TABLE ---
     st.subheader("Historical Ledger")
