@@ -17,7 +17,7 @@ hide_st_style = """
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
-st.title("Nifty 500 Breadth Terminal")
+st.title("Right Horizons - Nifty 500 Breadth Terminal")
 st.markdown("<p style='color: #5f6368;'>Internal Quantitative Tool | Synchronized Price & Breadth Action</p>", unsafe_allow_html=True)
 
 @st.cache_data(ttl=3600) 
