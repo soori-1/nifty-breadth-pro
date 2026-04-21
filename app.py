@@ -17,7 +17,7 @@ hide_st_style = """
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
-st.title("Right Horizons - Nifty 500 Breadth Terminal")
+st.title("Nifty 500 Breadth Terminal")
 st.markdown("<p style='color: #5f6368;'>Internal Quantitative Tool | Synchronized Price & Breadth Action</p>", unsafe_allow_html=True)
 
 @st.cache_data(ttl=3600) 
@@ -27,8 +27,16 @@ def load_data():
     
     df = pd.read_csv("Nifty500_Master_Data.csv")
     df['DATE'] = pd.to_datetime(df['DATE'])
+    
+    # Sort dates sequentially FIRST so the moving average calculates correctly
+    df = df.sort_values(by='DATE').reset_index(drop=True)
+    
+    # Calculate Indicators
     df['Net_Highs'] = df['52W_HIGH'] - df['52W_LOW']
-    df = df.sort_values(by='DATE')
+    
+    # NEW: Calculate the 200-Day Simple Moving Average
+    df['NIFTY_200_SMA'] = df['NIFTY_500_CLOSE'].rolling(window=200).mean()
+    
     return df
 
 df = load_data()
@@ -71,7 +79,7 @@ else:
     top_height = split_ratio / 100.0
     bottom_height = 1.0 - top_height
 
-    # --- SYNCHRONIZED CHART (LIGHT MODE COLORS) ---
+    # --- SYNCHRONIZED CHART (LIGHT MODE + 200 SMA) ---
     fig = make_subplots(
         rows=2, cols=1, 
         shared_xaxes=False, 
@@ -79,12 +87,20 @@ else:
         vertical_spacing=0.03
     )
 
-    # TOP CHART: Nifty 500 (Now Corporate Blue)
+    # TOP CHART: Nifty 500 (Corporate Blue)
     fig.add_trace(go.Scatter(
         x=df['DATE'], y=df['NIFTY_500_CLOSE'], 
         name="Nifty 500", 
         line=dict(color='#1A73E8', width=2), 
         fill='tozeroy', fillcolor='rgba(26, 115, 232, 0.05)' 
+    ), row=1, col=1)
+
+    # NEW TOP CHART OVERLAY: 200-Day SMA
+    # We use a solid amber/orange dashed line for distinct visibility
+    fig.add_trace(go.Scatter(
+        x=df['DATE'], y=df['NIFTY_200_SMA'], 
+        name="200 SMA", 
+        line=dict(color='#E65100', width=1.5, dash='dot') 
     ), row=1, col=1)
 
     # BOTTOM CHART: Indicator
@@ -112,7 +128,7 @@ else:
         height=700, 
         plot_bgcolor="#FFFFFF", 
         paper_bgcolor="#FFFFFF",
-        font=dict(color="#202124"), # Dark Gray text for readability
+        font=dict(color="#202124"),
         hovermode="x unified",
         showlegend=False,
         margin=dict(l=10, r=10, t=10, b=10),
@@ -147,7 +163,6 @@ else:
     fig.update_yaxes(rangemode="nonnegative", fixedrange=False, row=1, col=1)
     fig.update_yaxes(fixedrange=False, row=2, col=1)
 
-    # Soft gray gridlines
     fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='#F1F3F4', showspikes=True, spikecolor="#9AA0A6", spikesnap="cursor", spikemode="across")
     fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='#F1F3F4', showspikes=True, spikecolor="#9AA0A6", spikethickness=1)
 
