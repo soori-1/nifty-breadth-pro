@@ -6,7 +6,6 @@ import os
 
 st.set_page_config(layout="wide", page_title="Market Breadth Terminal")
 
-# Hide Streamlit Branding
 hide_st_style = """
             <style>
             #MainMenu {visibility: hidden;}
@@ -27,16 +26,15 @@ def load_data():
     
     df = pd.read_csv("Nifty500_Master_Data.csv")
     df['DATE'] = pd.to_datetime(df['DATE'])
-    
-    # Sort dates sequentially FIRST so the moving average calculates correctly
     df = df.sort_values(by='DATE').reset_index(drop=True)
-    
-    # Calculate Indicators
     df['Net_Highs'] = df['52W_HIGH'] - df['52W_LOW']
-    
-    # NEW: Calculate the 200-Day Simple Moving Average
     df['NIFTY_200_SMA'] = df['NIFTY_500_CLOSE'].rolling(window=200).mean()
     
+    # Failsafe: If the GitHub action hasn't finished yet, don't crash
+    if 'PCT_ABOVE_200SMA' not in df.columns:
+        df['PCT_ABOVE_200SMA'] = 0.0
+        df['ABOVE_200SMA'] = 0
+        
     return df
 
 df = load_data()
@@ -48,7 +46,7 @@ else:
     latest = df.iloc[-1]
     prev = df.iloc[-2]
     
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4, col5 = st.columns(5)
     with col1:
         st.metric("Nifty 500 Index", f"{latest['NIFTY_500_CLOSE']:,.2f}", f"{latest['NIFTY_500_CLOSE'] - prev['NIFTY_500_CLOSE']:,.2f}")
     with col2:
@@ -57,6 +55,8 @@ else:
         st.metric("New 52W Lows", int(latest['52W_LOW']), int(latest['52W_LOW'] - prev['52W_LOW']), delta_color="inverse")
     with col4:
         st.metric("Net Breadth (H-L)", int(latest['Net_Highs']), int(latest['Net_Highs'] - prev['Net_Highs']))
+    with col5:
+        st.metric("Stocks > 200 SMA", f"{latest['PCT_ABOVE_200SMA']:.1f}%", f"{latest['PCT_ABOVE_200SMA'] - prev['PCT_ABOVE_200SMA']:.1f}%")
 
     st.divider()
 
@@ -66,7 +66,7 @@ else:
     with ctrl_col1:
         chart_choice = st.radio(
             "Select Lower Indicator:",
-            ["Net Highs (H-L)", "52-Week Highs", "52-Week Lows"],
+            ["Net Highs (H-L)", "Stocks > 200 SMA (%)", "52-Week Highs", "52-Week Lows"],
             horizontal=True
         )
         
@@ -79,27 +79,17 @@ else:
     top_height = split_ratio / 100.0
     bottom_height = 1.0 - top_height
 
-    # --- SYNCHRONIZED CHART (LIGHT MODE + 200 SMA) ---
-    fig = make_subplots(
-        rows=2, cols=1, 
-        shared_xaxes=False, 
-        row_heights=[top_height, bottom_height], 
-        vertical_spacing=0.03
-    )
+    # --- SYNCHRONIZED CHART ---
+    fig = make_subplots(rows=2, cols=1, shared_xaxes=False, row_heights=[top_height, bottom_height], vertical_spacing=0.03)
 
-    # TOP CHART: Nifty 500 (Corporate Blue)
+    # TOP CHART: Nifty 500 
     fig.add_trace(go.Scatter(
-        x=df['DATE'], y=df['NIFTY_500_CLOSE'], 
-        name="Nifty 500", 
-        line=dict(color='#1A73E8', width=2), 
-        fill='tozeroy', fillcolor='rgba(26, 115, 232, 0.05)' 
+        x=df['DATE'], y=df['NIFTY_500_CLOSE'], name="Nifty 500", 
+        line=dict(color='#1A73E8', width=2), fill='tozeroy', fillcolor='rgba(26, 115, 232, 0.05)' 
     ), row=1, col=1)
 
-    # NEW TOP CHART OVERLAY: 200-Day SMA
-    # We use a solid amber/orange dashed line for distinct visibility
     fig.add_trace(go.Scatter(
-        x=df['DATE'], y=df['NIFTY_200_SMA'], 
-        name="200 SMA", 
+        x=df['DATE'], y=df['NIFTY_200_SMA'], name="200 SMA", 
         line=dict(color='#E65100', width=1.5, dash='dot') 
     ), row=1, col=1)
 
@@ -110,6 +100,14 @@ else:
             line=dict(color='#607D8B', width=1.5), fill='tozeroy', fillcolor='rgba(96, 125, 139, 0.05)'
         ), row=2, col=1)
         fig.add_hline(y=0, line_dash="dash", line_color="#D32F2F", line_width=1.5, row=2, col=1)
+
+    elif chart_choice == "Stocks > 200 SMA (%)":
+        fig.add_trace(go.Scatter(
+            x=df['DATE'], y=df['PCT_ABOVE_200SMA'], name="% Above 200 SMA", 
+            line=dict(color='#8E24AA', width=1.5), fill='tozeroy', fillcolor='rgba(142, 36, 170, 0.05)'
+        ), row=2, col=1)
+        # The 50% Waterline indicator
+        fig.add_hline(y=50, line_dash="dash", line_color="#9E9E9E", line_width=1.5, row=2, col=1)
 
     elif chart_choice == "52-Week Highs":
         fig.add_trace(go.Scatter(
@@ -123,22 +121,15 @@ else:
             line=dict(color='#DB4437', width=1.5), fill='tozeroy', fillcolor='rgba(219, 68, 55, 0.1)'
         ), row=2, col=1)
 
-    # --- UI & INTERACTIVITY (PURE WHITE BACKGROUND) ---
+    # --- UI & INTERACTIVITY ---
     fig.update_layout(
-        height=700, 
-        plot_bgcolor="#FFFFFF", 
-        paper_bgcolor="#FFFFFF",
-        font=dict(color="#202124"),
-        hovermode="x unified",
-        showlegend=False,
-        margin=dict(l=10, r=10, t=10, b=10),
-        dragmode="pan"
+        height=700, plot_bgcolor="#FFFFFF", paper_bgcolor="#FFFFFF", font=dict(color="#202124"),
+        hovermode="x unified", showlegend=False, margin=dict(l=10, r=10, t=10, b=10), dragmode="pan"
     )
 
     fig.update_xaxes(matches='x')
     fig.update_xaxes(showticklabels=False, row=1, col=1)
 
-    # Range Selectors styled for Light Mode
     fig.update_xaxes(
         type="date",
         rangeselector=dict(
@@ -151,26 +142,17 @@ else:
                 dict(count=2, label="2Y", step="year", stepmode="backward"),
                 dict(step="all", label="All")
             ]),
-            bgcolor="#F1F3F4",
-            activecolor="#E8EAED",
-            font=dict(color="#202124"),
-            y=1.05,
-            x=0
+            bgcolor="#F1F3F4", activecolor="#E8EAED", font=dict(color="#202124"), y=1.05, x=0
         ),
         row=1, col=1
     )
 
     fig.update_yaxes(rangemode="nonnegative", fixedrange=False, row=1, col=1)
     fig.update_yaxes(fixedrange=False, row=2, col=1)
-
     fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='#F1F3F4', showspikes=True, spikecolor="#9AA0A6", spikesnap="cursor", spikemode="across")
     fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='#F1F3F4', showspikes=True, spikecolor="#9AA0A6", spikethickness=1)
 
-    st.plotly_chart(
-        fig, 
-        use_container_width=True, 
-        config={'scrollZoom': True, 'displayModeBar': False}
-    )
+    st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True, 'displayModeBar': False})
 
     # --- DATA TABLE ---
     st.subheader("Historical Ledger")
@@ -178,15 +160,14 @@ else:
     display_df['DATE'] = display_df['DATE'].dt.strftime('%d %b %Y') 
     
     st.dataframe(
-        display_df[['DATE', 'NIFTY_500_CLOSE', '52W_HIGH', '52W_LOW', 'Net_Highs', 'PCT_HIGH']],
-        use_container_width=True,
-        hide_index=True,
+        display_df[['DATE', 'NIFTY_500_CLOSE', '52W_HIGH', '52W_LOW', 'Net_Highs', 'PCT_ABOVE_200SMA']],
+        use_container_width=True, hide_index=True,
         column_config={
             "DATE": "Trading Date",
             "NIFTY_500_CLOSE": st.column_config.NumberColumn("Index Close", format="%.2f"),
             "52W_HIGH": st.column_config.NumberColumn("Highs"),
             "52W_LOW": st.column_config.NumberColumn("Lows"),
             "Net_Highs": st.column_config.NumberColumn("Net (H-L)"),
-            "PCT_HIGH": st.column_config.NumberColumn("% at High", format="%.1f%%")
+            "PCT_ABOVE_200SMA": st.column_config.NumberColumn("% > 200 SMA", format="%.1f%%")
         }
     )
