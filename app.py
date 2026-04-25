@@ -306,7 +306,7 @@ fig = make_subplots(
 # ── PRICE — Scattergl for hardware-accelerated smooth rendering ──
 fig.add_trace(go.Scattergl(
     x=df_plot['DATE'], y=df_plot['NIFTY_500_CLOSE'], name="Nifty 500",
-    line=dict(color=RH_GOLD_LIGHT, width=1.8, shape='spline', smoothing=0.5),
+    line=dict(color=RH_GOLD_LIGHT, width=1.8),
     fill='tozeroy', fillcolor='rgba(184,136,26,0.06)',
     hovertemplate='<b>%{y:,.2f}</b><extra></extra>'
 ), row=1, col=1)
@@ -321,7 +321,7 @@ fig.add_trace(go.Scattergl(
 if chart_choice == "Net Highs (H-L)":
     fig.add_trace(go.Scattergl(
         x=df_plot['DATE'], y=df_plot['Net_Highs'], name="Net Highs",
-        line=dict(color=RH_GOLD, width=1.5, shape='spline', smoothing=0.5),
+        line=dict(color=RH_GOLD, width=1.5),
         fill='tozeroy', fillcolor='rgba(184,136,26,0.07)',
         hovertemplate='Net <b>%{y}</b><extra></extra>'
     ), row=2, col=1)
@@ -331,7 +331,7 @@ if chart_choice == "Net Highs (H-L)":
 elif chart_choice == "Stocks > 200 SMA (%)":
     fig.add_trace(go.Scattergl(
         x=df_plot['DATE'], y=df_plot['PCT_ABOVE_200SMA'], name="% > 200 SMA",
-        line=dict(color="#8E6FD8", width=1.5, shape='spline', smoothing=0.5),
+        line=dict(color="#8E6FD8", width=1.5),
         fill='tozeroy', fillcolor='rgba(142,111,216,0.07)',
         hovertemplate='<b>%{y:.1f}%</b><extra></extra>'
     ), row=2, col=1)
@@ -341,7 +341,7 @@ elif chart_choice == "Stocks > 200 SMA (%)":
 elif chart_choice == "52-Week Highs":
     fig.add_trace(go.Scattergl(
         x=df_plot['DATE'], y=df_plot['52W_HIGH'], name="Highs",
-        line=dict(color=RH_GREEN, width=1.5, shape='spline', smoothing=0.5),
+        line=dict(color=RH_GREEN, width=1.5),
         fill='tozeroy', fillcolor='rgba(46,204,113,0.07)',
         hovertemplate='Highs <b>%{y}</b><extra></extra>'
     ), row=2, col=1)
@@ -350,7 +350,7 @@ elif chart_choice == "52-Week Highs":
 else:  # 52-Week Lows
     fig.add_trace(go.Scattergl(
         x=df_plot['DATE'], y=df_plot['52W_LOW'], name="Lows",
-        line=dict(color=RH_RED, width=1.5, shape='spline', smoothing=0.5),
+        line=dict(color=RH_RED, width=1.5),
         fill='tozeroy', fillcolor='rgba(231,76,60,0.07)',
         hovertemplate='Lows <b>%{y}</b><extra></extra>'
     ), row=2, col=1)
