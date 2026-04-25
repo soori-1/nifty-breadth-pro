@@ -4,175 +4,345 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import os
 
-st.set_page_config(layout="wide", page_title="Market Breadth Terminal")
+st.set_page_config(layout="wide", page_title="Right Horizons | Breadth Terminal")
 
-hide_st_style = """
-            <style>
-            #MainMenu {visibility: hidden;}
-            footer {visibility: hidden;}
-            header {visibility: hidden;}
-            .block-container {padding-top: 2rem;}
-            </style>
-            """
-st.markdown(hide_st_style, unsafe_allow_html=True)
+# ─────────────────────────────────────────────────────
+#  RIGHT HORIZONS TERMINAL THEME
+#  Colors pulled from the brand logo: gold + dark
+# ─────────────────────────────────────────────────────
+RH_GOLD       = "#B8881A"
+RH_GOLD_LIGHT = "#D4A830"
+RH_GOLD_DIM   = "#7A5C10"
+RH_RED        = "#E74C3C"
+RH_GREEN      = "#2ECC71"
+RH_BG         = "#0D0D0D"
+RH_SURFACE    = "#161616"
+RH_TEXT       = "#E8DFC8"
+RH_MUTED      = "#7A7060"
+RH_BORDER     = "rgba(184,136,26,0.2)"
 
-st.title("Nifty 500 Breadth Terminal")
-st.markdown("<p style='color: #5f6368;'>Internal Quantitative Tool | Synchronized Price & Breadth Action</p>", unsafe_allow_html=True)
+CUSTOM_CSS = f"""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@700;900&family=IBM+Plex+Mono:wght@300;400;500&display=swap');
 
-@st.cache_data(ttl=3600) 
+#MainMenu, footer, header {{ visibility: hidden; }}
+
+.stApp {{
+    background: {RH_BG};
+    color: {RH_TEXT};
+    font-family: 'IBM Plex Mono', monospace;
+}}
+
+.block-container {{
+    padding-top: 1.5rem;
+    padding-bottom: 2rem;
+    max-width: 1400px;
+}}
+
+/* ── BRAND HEADER ── */
+.rh-header {{
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    padding: 6px 0 14px;
+    border-bottom: 1px solid {RH_BORDER};
+    margin-bottom: 18px;
+}}
+.rh-brand {{
+    font-family: 'Fraunces', serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: {RH_GOLD_LIGHT};
+    letter-spacing: 0.06em;
+}}
+.rh-brand-sub {{
+    font-size: 10px;
+    color: {RH_MUTED};
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+}}
+.rh-live {{
+    margin-left: auto;
+    font-size: 10px;
+    color: {RH_MUTED};
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}}
+.rh-dot {{
+    display: inline-block;
+    width: 6px; height: 6px;
+    background: {RH_GREEN};
+    border-radius: 50%;
+    margin-right: 6px;
+    animation: pulse 2s ease-in-out infinite;
+}}
+@keyframes pulse {{
+    0%, 100% {{ opacity: 1; }}
+    50% {{ opacity: 0.4; }}
+}}
+
+/* ── KPI METRIC CARDS ── */
+[data-testid="stMetric"] {{
+    background: {RH_SURFACE};
+    border: 1px solid {RH_BORDER};
+    padding: 14px 16px;
+    border-radius: 0;
+}}
+[data-testid="stMetricLabel"] {{
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-size: 9px !important;
+    letter-spacing: 0.14em !important;
+    text-transform: uppercase;
+    color: {RH_MUTED} !important;
+}}
+[data-testid="stMetricValue"] {{
+    font-family: 'Fraunces', serif !important;
+    font-weight: 900 !important;
+    color: {RH_TEXT} !important;
+    font-size: 26px !important;
+}}
+[data-testid="stMetricDelta"] {{
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-size: 11px !important;
+}}
+
+/* ── SECTION TITLES ── */
+h1, h2, h3 {{
+    font-family: 'IBM Plex Mono', monospace !important;
+    color: {RH_GOLD_DIM} !important;
+    font-size: 11px !important;
+    letter-spacing: 0.16em !important;
+    text-transform: uppercase;
+    font-weight: 400 !important;
+}}
+
+/* ── CONTROLS ── */
+.stRadio > label, .stSlider > label {{
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-size: 10px !important;
+    color: {RH_MUTED} !important;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}}
+.stRadio [role="radiogroup"] label {{
+    background: transparent;
+    border: 1px solid {RH_BORDER};
+    padding: 4px 10px !important;
+    margin-right: 4px;
+    transition: all 0.15s;
+}}
+
+/* ── DATAFRAME ── */
+.stDataFrame {{
+    border: 1px solid {RH_BORDER};
+    background: {RH_SURFACE};
+}}
+.stDataFrame [data-testid="stDataFrameResizable"] {{
+    background: {RH_SURFACE};
+}}
+
+hr, .stDivider {{
+    border-color: {RH_BORDER} !important;
+    margin: 12px 0 !important;
+}}
+</style>
+"""
+st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
+
+# ─────────────────────────────────────────────────────
+#  BRAND HEADER
+# ─────────────────────────────────────────────────────
+st.markdown(f"""
+<div class="rh-header">
+    <span class="rh-brand">RIGHT HORIZONS</span>
+    <span class="rh-brand-sub">Market Breadth Terminal · Nifty 500</span>
+    <span class="rh-live"><span class="rh-dot"></span>LIVE</span>
+</div>
+""", unsafe_allow_html=True)
+
+
+# ─────────────────────────────────────────────────────
+#  DATA LOAD
+# ─────────────────────────────────────────────────────
+@st.cache_data(ttl=3600)
 def load_data():
     if not os.path.exists("Nifty500_Master_Data.csv"):
         return pd.DataFrame()
-    
+
     df = pd.read_csv("Nifty500_Master_Data.csv")
     df['DATE'] = pd.to_datetime(df['DATE'])
     df = df.sort_values(by='DATE').reset_index(drop=True)
-    
-    # 1. Forward-fill any missing Nifty 500 prices
     df['NIFTY_500_CLOSE'] = df['NIFTY_500_CLOSE'].ffill()
-    
-    # 2. Calculate Indicators safely
     df['Net_Highs'] = df['52W_HIGH'] - df['52W_LOW']
     df['NIFTY_200_SMA'] = df['NIFTY_500_CLOSE'].rolling(window=200, min_periods=1).mean()
-    
-    # Failsafe: If the GitHub action hasn't finished yet
+
     if 'PCT_ABOVE_200SMA' not in df.columns:
         df['PCT_ABOVE_200SMA'] = 0.0
         df['ABOVE_200SMA'] = 0
-        
     return df
+
 
 df = load_data()
 
 if df.empty:
     st.error("System initializing. Please ensure data pipeline is complete.")
 else:
-    # --- EXECUTIVE KPI ROW ---
-    latest = df.iloc[-1]
-    prev = df.iloc[-2]
-    
-    col1, col2, col3, col4, col5 = st.columns(5)
-    with col1:
-        st.metric("Nifty 500 Index", f"{latest['NIFTY_500_CLOSE']:,.2f}", f"{latest['NIFTY_500_CLOSE'] - prev['NIFTY_500_CLOSE']:,.2f}")
-    with col2:
-        st.metric("New 52W Highs", int(latest['52W_HIGH']), int(latest['52W_HIGH'] - prev['52W_HIGH']))
-    with col3:
-        st.metric("New 52W Lows", int(latest['52W_LOW']), int(latest['52W_LOW'] - prev['52W_LOW']), delta_color="inverse")
-    with col4:
-        st.metric("Net Breadth (H-L)", int(latest['Net_Highs']), int(latest['Net_Highs'] - prev['Net_Highs']))
-    with col5:
-        st.metric("Stocks > 200 SMA", f"{latest['PCT_ABOVE_200SMA']:.1f}%", f"{latest['PCT_ABOVE_200SMA'] - prev['PCT_ABOVE_200SMA']:.1f}%")
+    latest, prev = df.iloc[-1], df.iloc[-2]
+
+    # ── KPI ROW ──
+    c1, c2, c3, c4, c5 = st.columns(5)
+    with c1:
+        st.metric("Nifty 500 Index", f"{latest['NIFTY_500_CLOSE']:,.2f}",
+                  f"{latest['NIFTY_500_CLOSE'] - prev['NIFTY_500_CLOSE']:,.2f}")
+    with c2:
+        st.metric("New 52W Highs", int(latest['52W_HIGH']),
+                  int(latest['52W_HIGH'] - prev['52W_HIGH']))
+    with c3:
+        st.metric("New 52W Lows", int(latest['52W_LOW']),
+                  int(latest['52W_LOW'] - prev['52W_LOW']), delta_color="inverse")
+    with c4:
+        st.metric("Net Breadth (H−L)", int(latest['Net_Highs']),
+                  int(latest['Net_Highs'] - prev['Net_Highs']))
+    with c5:
+        st.metric("Stocks > 200 SMA", f"{latest['PCT_ABOVE_200SMA']:.1f}%",
+                  f"{latest['PCT_ABOVE_200SMA'] - prev['PCT_ABOVE_200SMA']:.1f}%")
 
     st.divider()
 
-    # --- TERMINAL CONTROLS ---
-    ctrl_col1, ctrl_col2 = st.columns([1, 1])
-    
-    with ctrl_col1:
+    # ── CONTROLS ──
+    ctrl1, ctrl2 = st.columns([2, 1])
+    with ctrl1:
         chart_choice = st.radio(
-            "Select Lower Indicator:",
+            "Lower Indicator",
             ["Net Highs (H-L)", "Stocks > 200 SMA (%)", "52-Week Highs", "52-Week Lows"],
             horizontal=True
         )
-        
-    with ctrl_col2:
-        split_ratio = st.slider(
-            "Adjust Chart Split (Price Area %)", 
-            min_value=40, max_value=90, value=70, step=5
-        )
+    with ctrl2:
+        split_ratio = st.slider("Chart Split (Price Area %)", 40, 90, 65, 5)
 
-    top_height = split_ratio / 100.0
-    bottom_height = 1.0 - top_height
+    top_h = split_ratio / 100.0
+    bot_h = 1.0 - top_h
 
-    # --- SYNCHRONIZED CHART ---
-    fig = make_subplots(rows=2, cols=1, shared_xaxes=False, row_heights=[top_height, bottom_height], vertical_spacing=0.03)
+    # ── SYNCHRONIZED CHART ──
+    fig = make_subplots(
+        rows=2, cols=1, shared_xaxes=True,
+        row_heights=[top_h, bot_h], vertical_spacing=0.04
+    )
 
-    # TOP CHART: Nifty 500 
+    # PRICE
     fig.add_trace(go.Scatter(
-        x=df['DATE'], y=df['NIFTY_500_CLOSE'], name="Nifty 500", 
-        line=dict(color='#1A73E8', width=2), fill='tozeroy', fillcolor='rgba(26, 115, 232, 0.05)' 
+        x=df['DATE'], y=df['NIFTY_500_CLOSE'], name="Nifty 500",
+        line=dict(color=RH_GOLD_LIGHT, width=1.8),
+        fill='tozeroy', fillcolor='rgba(184,136,26,0.06)'
     ), row=1, col=1)
 
     fig.add_trace(go.Scatter(
-        x=df['DATE'], y=df['NIFTY_200_SMA'], name="200 SMA", 
-        line=dict(color='#E65100', width=1.5, dash='dot') 
+        x=df['DATE'], y=df['NIFTY_200_SMA'], name="200 SMA",
+        line=dict(color=RH_RED, width=1.2, dash='dot')
     ), row=1, col=1)
 
-    # BOTTOM CHART: Indicator
+    # INDICATOR
     if chart_choice == "Net Highs (H-L)":
         fig.add_trace(go.Scatter(
-            x=df['DATE'], y=df['Net_Highs'], name="Net Highs", 
-            line=dict(color='#607D8B', width=1.5), fill='tozeroy', fillcolor='rgba(96, 125, 139, 0.05)'
+            x=df['DATE'], y=df['Net_Highs'], name="Net Highs",
+            line=dict(color=RH_GOLD, width=1.5),
+            fill='tozeroy', fillcolor='rgba(184,136,26,0.07)'
         ), row=2, col=1)
-        fig.add_hline(y=0, line_dash="dash", line_color="#D32F2F", line_width=1.5, row=2, col=1)
+        fig.add_hline(y=0, line_dash="dash", line_color=RH_RED, line_width=1, row=2, col=1)
 
     elif chart_choice == "Stocks > 200 SMA (%)":
         fig.add_trace(go.Scatter(
-            x=df['DATE'], y=df['PCT_ABOVE_200SMA'], name="% Above 200 SMA", 
-            line=dict(color='#8E24AA', width=1.5), fill='tozeroy', fillcolor='rgba(142, 36, 170, 0.05)'
+            x=df['DATE'], y=df['PCT_ABOVE_200SMA'], name="% > 200 SMA",
+            line=dict(color="#8E6FD8", width=1.5),
+            fill='tozeroy', fillcolor='rgba(142,111,216,0.07)'
         ), row=2, col=1)
-        # The 50% Waterline indicator
-        fig.add_hline(y=50, line_dash="dash", line_color="#9E9E9E", line_width=1.5, row=2, col=1)
+        fig.add_hline(y=50, line_dash="dash", line_color=RH_MUTED, line_width=1, row=2, col=1)
 
     elif chart_choice == "52-Week Highs":
         fig.add_trace(go.Scatter(
-            x=df['DATE'], y=df['52W_HIGH'], name="Highs", 
-            line=dict(color='#0F9D58', width=1.5), fill='tozeroy', fillcolor='rgba(15, 157, 88, 0.1)'
+            x=df['DATE'], y=df['52W_HIGH'], name="Highs",
+            line=dict(color=RH_GREEN, width=1.5),
+            fill='tozeroy', fillcolor='rgba(46,204,113,0.07)'
         ), row=2, col=1)
 
     elif chart_choice == "52-Week Lows":
         fig.add_trace(go.Scatter(
-            x=df['DATE'], y=df['52W_LOW'], name="Lows", 
-            line=dict(color='#DB4437', width=1.5), fill='tozeroy', fillcolor='rgba(219, 68, 55, 0.1)'
+            x=df['DATE'], y=df['52W_LOW'], name="Lows",
+            line=dict(color=RH_RED, width=1.5),
+            fill='tozeroy', fillcolor='rgba(231,76,60,0.07)'
         ), row=2, col=1)
 
-    # --- UI & INTERACTIVITY ---
+    # ── LAYOUT (terminal aesthetic) ──
     fig.update_layout(
-        height=700, plot_bgcolor="#FFFFFF", paper_bgcolor="#FFFFFF", font=dict(color="#202124"),
-        hovermode="x unified", showlegend=False, margin=dict(l=10, r=10, t=10, b=10), dragmode="pan"
+        height=700,
+        plot_bgcolor=RH_BG,
+        paper_bgcolor=RH_BG,
+        font=dict(color=RH_TEXT, family="IBM Plex Mono", size=11),
+        hovermode="x unified",
+        hoverlabel=dict(
+            bgcolor=RH_SURFACE,
+            bordercolor=RH_BORDER,
+            font=dict(family="IBM Plex Mono", color=RH_TEXT, size=11)
+        ),
+        showlegend=False,
+        margin=dict(l=10, r=10, t=10, b=10),
+        dragmode="pan"
     )
-
-    fig.update_xaxes(matches='x')
-    fig.update_xaxes(showticklabels=False, row=1, col=1)
 
     fig.update_xaxes(
         type="date",
         rangeselector=dict(
-            buttons=list([
-                dict(count=7, label="1W", step="day", stepmode="backward"),
-                dict(count=1, label="1M", step="month", stepmode="backward"),
-                dict(count=3, label="3M", step="month", stepmode="backward"),
-                dict(count=6, label="6M", step="month", stepmode="backward"),
-                dict(count=1, label="1Y", step="year", stepmode="backward"),
-                dict(count=2, label="2Y", step="year", stepmode="backward"),
-                dict(step="all", label="All")
-            ]),
-            bgcolor="#F1F3F4", activecolor="#E8EAED", font=dict(color="#202124"), y=1.05, x=0
+            buttons=[
+                dict(count=7,  label="1W", step="day",   stepmode="backward"),
+                dict(count=1,  label="1M", step="month", stepmode="backward"),
+                dict(count=3,  label="3M", step="month", stepmode="backward"),
+                dict(count=6,  label="6M", step="month", stepmode="backward"),
+                dict(count=1,  label="1Y", step="year",  stepmode="backward"),
+                dict(count=2,  label="2Y", step="year",  stepmode="backward"),
+                dict(step="all", label="ALL")
+            ],
+            bgcolor=RH_SURFACE,
+            activecolor=RH_GOLD,
+            bordercolor=RH_GOLD_DIM,
+            font=dict(color=RH_TEXT, family="IBM Plex Mono", size=10),
+            y=1.08, x=0
         ),
         row=1, col=1
     )
 
-    fig.update_yaxes(rangemode="nonnegative", fixedrange=False, row=1, col=1)
-    fig.update_yaxes(fixedrange=False, row=2, col=1)
-    fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='#F1F3F4', showspikes=True, spikecolor="#9AA0A6", spikesnap="cursor", spikemode="across")
-    fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='#F1F3F4', showspikes=True, spikecolor="#9AA0A6", spikethickness=1)
+    fig.update_xaxes(
+        showgrid=True, gridwidth=0.5, gridcolor='rgba(58,53,48,0.5)',
+        showspikes=True, spikecolor=RH_GOLD_DIM, spikesnap="cursor",
+        spikemode="across", spikethickness=1,
+        tickfont=dict(color=RH_MUTED, size=9),
+        zeroline=False, linecolor=RH_BORDER
+    )
+    fig.update_yaxes(
+        showgrid=True, gridwidth=0.5, gridcolor='rgba(58,53,48,0.5)',
+        showspikes=True, spikecolor=RH_GOLD_DIM, spikethickness=1,
+        tickfont=dict(color=RH_MUTED, size=9),
+        zeroline=False, linecolor=RH_BORDER
+    )
+    fig.update_yaxes(rangemode="nonnegative", row=1, col=1)
 
-    st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True, 'displayModeBar': False})
+    st.plotly_chart(fig, use_container_width=True,
+                    config={'scrollZoom': True, 'displayModeBar': False})
 
-    # --- DATA TABLE ---
+    # ── HISTORICAL LEDGER ──
     st.subheader("Historical Ledger")
     display_df = df.sort_values(by='DATE', ascending=False).head(30).copy()
-    display_df['DATE'] = display_df['DATE'].dt.strftime('%d %b %Y') 
-    
+    display_df['DATE'] = display_df['DATE'].dt.strftime('%d %b %Y')
+
     st.dataframe(
-        display_df[['DATE', 'NIFTY_500_CLOSE', '52W_HIGH', '52W_LOW', 'Net_Highs', 'PCT_ABOVE_200SMA']],
+        display_df[['DATE', 'NIFTY_500_CLOSE', '52W_HIGH', '52W_LOW',
+                    'Net_Highs', 'PCT_ABOVE_200SMA']],
         use_container_width=True, hide_index=True,
         column_config={
-            "DATE": "Trading Date",
-            "NIFTY_500_CLOSE": st.column_config.NumberColumn("Index Close", format="%.2f"),
-            "52W_HIGH": st.column_config.NumberColumn("Highs"),
-            "52W_LOW": st.column_config.NumberColumn("Lows"),
-            "Net_Highs": st.column_config.NumberColumn("Net (H-L)"),
+            "DATE":            "Trading Date",
+            "NIFTY_500_CLOSE": st.column_config.NumberColumn("Index Close",  format="%.2f"),
+            "52W_HIGH":        st.column_config.NumberColumn("Highs"),
+            "52W_LOW":         st.column_config.NumberColumn("Lows"),
+            "Net_Highs":       st.column_config.NumberColumn("Net (H−L)"),
             "PCT_ABOVE_200SMA": st.column_config.NumberColumn("% > 200 SMA", format="%.1f%%")
         }
     )
